@@ -1,0 +1,18 @@
+#!/bin/bash
+
+aws ec2 create-image --profile dev --instance-id <some_id> --name "DEV-repo-$(date +%Y%m%d)" --description "DEV-repo-$(date +%Y%m%d)" --no-reboot
+
+for i in {0..13}; do
+        ((keep[$(date +%Y%m%d -d "-$i day")]++))
+done
+
+amidate=($(aws ec2 describe-images --profile dev --filters 'Name=name,Values=DEV-repo-*' --query 'Images[*].{Name:Name}' | grep -o '[0-9]*'))
+
+for date in "${amidate[@]}"; do
+        if [[ ! " ${!keep[@]} " =~ " $date " ]]; then
+                # to do when arr doesn't contain value
+                id=$(aws ec2 describe-images --profile dev --filters "Name=name,Values=DEV-repo-$date" --query 'Images[*].{ID:ImageId}' | jq '.[].ID' | tr -d '"')
+                echo "deregister-image $id"
+                aws ec2 deregister-image --profile dev --image-id $id
+        fi
+done

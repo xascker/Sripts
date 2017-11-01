@@ -1,0 +1,80 @@
+ibug - tool
+
+/etc/profile.d/vb_instance.sh
+===========================
+1.jstack -l $JAVA_PID > stacktrace.log
+2.jmap -dump:format=b,file=heap.bin $JAVA_PID
+3.cat /proc/meminfo > memory.log
+4.df -h > disk.log
+5.sysctl fs.file-nr > fd.log
+6.$SERVICE_DIRECTORY/logs/voicebase.log 
+
+
+sudo -u vb jstack -l
+sudo -u vb jmap -dump:format=b,file=heap.bin 4578
+/tmp/hsperfdata_vb/heap.bin
+Dumping heap to /tmp/hsperfdata_vb/heap.bin 
+
+==============================
+function _ibug() {
+  USER="vb"
+  DEBUG_DIR='/opt/itools/debug'
+
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  subcommands=${INSTANCE_SERVICE_NAME}
+
+  if [[ ${COMP_CWORD} == 1 ]] ; then
+      COMPREPLY=( $(compgen -W "${subcommands}" -- ${cur}) )
+      return 0
+  fi
+
+  case "$1" in
+    [0-9]* ) JAVA_PID=$1
+             JAVA_APP=$(ps -o cgroup $1 | grep name | sed -r 's/.+\///' | sed 's/.service//');;
+    [a-z]* ) JAVA_PID=$(ps aux | grep /$1/ | grep java | awk '{print $2}')
+             JAVA_APP=$1;;
+         * ) echo "Usage: ibug [java_pid] or [name_java_app]"
+             echo "       ibug [auto-complete]"
+             return 1;;
+  esac
+
+  if [ $(ps -p $JAVA_PID > /dev/null 2>&1; echo $?) -ne 0 ]; then
+      echo "$JAVA_PID: No such process"
+      return 1
+  fi
+
+  echo "JAVA_PID=$JAVA_PID"
+  echo "JAVA_APP=$JAVA_APP"
+
+  if [ ! -d "$DEBUG_DIR" ]; then
+      sudo mkdir -p $DEBUG_DIR
+      sudo chown $USER $DEBUG_DIR
+  fi
+
+  sudo -u $USER jstack -l $JAVA_PID | sudo tee $DEBUG_DIR/stacktrace.log > /dev/null 2>&1
+  sudo -u $USER jmap -dump:format=b,file=$DEBUG_DIR/heap.bin $JAVA_PID > /dev/null 2>&1
+  sudo cat /proc/meminfo | sudo tee $DEBUG_DIR/memory.log > /dev/null 2>&1
+  sudo df -h | sudo tee $DEBUG_DIR/disk.log > /dev/null 2>&1
+  sudo sysctl fs.file-nr | sudo tee $DEBUG_DIR/fd.log > /dev/null 2>&1
+
+  if [ -f "/opt/$JAVA_APP/logs/voicebase.log" ]; then
+      sudo cp /opt/$JAVA_APP/logs/voicebase.log $DEBUG_DIR/voicebase.log
+  fi
+
+  if [ ! -z $JAVA_APP ];then
+      ZIP_NAME=$JAVA_APP-$(date +%Y%m%d-%H-%M-%S).zip
+  else
+      ZIP_NAME=$JAVA_PID-$(date +%Y%m%d-%H-%M-%S).zip
+  fi
+
+  sudo find $DEBUG_DIR -type f -and -not -name '*.zip' -exec sudo zip -j $DEBUG_DIR/$ZIP_NAME {} + && echo "ZIP archive has created $DEBUG_DIR/$ZIP_NAME"
+  sudo find $DEBUG_DIR -type f -and -not -name '*.zip' -exec sudo rm -rf {} +
+}
+
+
+alias ibug=_ibug
+complete -F _ibug ibug
+
+========
+

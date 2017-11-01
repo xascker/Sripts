@@ -1,0 +1,61 @@
+puppet download file
+==============================================
+
+define download ($uri, $timeout = 300) {
+      exec {"download $uri":
+              command => "/usr/bin/wget $uri",
+              timeout => $timeout,
+              cwd => "/tmp",
+      }
+       file { "authorized_keys":
+              path   => "/tmp/1/authorized_keys",
+              ensure => present,
+              source => "/tmp/authorized_keys",
+              require => Exec["download $uri"],
+       }
+        exec {"cleaning":
+              command => "/bin/rm -f authorized_k*",
+              cwd => "/tmp",
+              require => File["authorized_keys"],
+        }
+ }
+
+
+  download {"authorized_keys":
+          uri => "http://server-2.com/authorized_keys",
+          timeout => 900;
+  }
+
+==============================================
+puppet module install maestrodev-wget
+
+include wget
+
+include wget
+
+wget::fetch { "download authorized_keys":
+  source             => 'http://server-2.com/authorized_keys',
+  destination        => '/tmp/authorized_keys',
+  redownload         => true,
+}
+===================================================
+define wget::fetch (
+  $destination,
+  $source             = $title,
+  $source_hash        = undef,
+  $timeout            = '0',
+  $verbose            = false,
+  $redownload         = false,
+  $nocheckcertificate = false,
+  $no_cookies         = false,
+  $execuser           = undef,
+  $user               = undef,
+  $password           = undef,
+  $headers            = undef,
+  $cache_dir          = undef,
+  $cache_file         = undef,
+  $flags              = undef,
+  $backup             = true,
+  $mode               = undef,
+  $unless             = undef,
+)
