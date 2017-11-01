@@ -21,7 +21,7 @@ ping_tunnels () {
     if [ $count -gt $recursions ]; then
        echo "`hostname`:-> Reset $tun_name tunnel ip $ip_tun at `date`"
        logger "`hostname`:-> Reset $tun_name tunnel ip $ip_tun at `date`"
-       /bin/vbash -ic 'clear vpn ipsec-peer $ip_tun'
+       /bin/vbash -ic "clear vpn ipsec-peer $ip_tun"
        count=1
     else
        ping_tunnels
